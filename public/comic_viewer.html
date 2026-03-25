@@ -7,24 +7,30 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
-        body {
+        html, body {
             background: #1a1a1a;
             color: #fff;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            height: 100vh;
+            height: 100%;
             overflow: hidden;
-            touch-action: pan-y;
+            touch-action: none;
+            -webkit-overflow-scrolling: touch;
         }
 
         .slider {
             display: flex;
-            height: 100vh;
-            transition: transform 0.35s ease;
+            height: 100%;
+            will-change: transform;
+            transform: translate3d(0, 0, 0);
+        }
+
+        .slider.animating {
+            transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
 
         .slide {
-            min-width: 100vw;
-            height: 100vh;
+            flex: 0 0 100vw;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -36,6 +42,7 @@
             object-fit: contain;
             user-select: none;
             -webkit-user-drag: none;
+            pointer-events: none;
         }
 
         .nav-area {
@@ -105,8 +112,8 @@
         const slider = document.getElementById('slider');
         const dotsContainer = document.getElementById('dots');
         const pageNum = document.getElementById('pageNum');
+        const vw = () => window.innerWidth;
 
-        // Build slides and dots
         for (let i = 1; i <= total; i++) {
             const slide = document.createElement('div');
             slide.className = 'slide';
@@ -118,53 +125,87 @@
 
             const dot = document.createElement('button');
             dot.className = 'dot' + (i === 1 ? ' active' : '');
-            dot.addEventListener('click', () => goTo(i - 1));
+            dot.addEventListener('click', () => slideTo(i - 1));
             dotsContainer.appendChild(dot);
         }
 
         const dots = dotsContainer.querySelectorAll('.dot');
 
-        function goTo(idx) {
+        function setPosition(px) {
+            slider.style.transform = `translate3d(${px}px, 0, 0)`;
+        }
+
+        function slideTo(idx) {
             current = Math.max(0, Math.min(total - 1, idx));
-            slider.style.transform = `translateX(-${current * 100}vw)`;
+            slider.classList.add('animating');
+            setPosition(-current * vw());
             dots.forEach((d, i) => d.classList.toggle('active', i === current));
             pageNum.textContent = `${current + 1} / ${total}`;
         }
 
+        slider.addEventListener('transitionend', () => {
+            slider.classList.remove('animating');
+        });
+
         // Click navigation
-        document.getElementById('navLeft').addEventListener('click', () => goTo(current - 1));
-        document.getElementById('navRight').addEventListener('click', () => goTo(current + 1));
+        document.getElementById('navLeft').addEventListener('click', () => slideTo(current - 1));
+        document.getElementById('navRight').addEventListener('click', () => slideTo(current + 1));
 
         // Keyboard
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft') goTo(current - 1);
-            if (e.key === 'ArrowRight') goTo(current + 1);
+            if (e.key === 'ArrowLeft') slideTo(current - 1);
+            if (e.key === 'ArrowRight') slideTo(current + 1);
         });
 
         // Touch swipe
-        let startX = 0;
-        let dragging = false;
+        let startX = 0, startY = 0, dx = 0, tracking = false, dirLocked = false, isHorizontal = false;
 
         slider.addEventListener('touchstart', (e) => {
             startX = e.touches[0].clientX;
-            dragging = true;
-            slider.style.transition = 'none';
-        });
+            startY = e.touches[0].clientY;
+            dx = 0;
+            tracking = true;
+            dirLocked = false;
+            isHorizontal = false;
+            slider.classList.remove('animating');
+        }, { passive: true });
 
         slider.addEventListener('touchmove', (e) => {
-            if (!dragging) return;
-            const dx = e.touches[0].clientX - startX;
-            slider.style.transform = `translateX(calc(-${current * 100}vw + ${dx}px))`;
-        });
+            if (!tracking) return;
+            dx = e.touches[0].clientX - startX;
+            const dy = e.touches[0].clientY - startY;
 
-        slider.addEventListener('touchend', (e) => {
-            if (!dragging) return;
-            dragging = false;
-            slider.style.transition = 'transform 0.35s ease';
-            const dx = e.changedTouches[0].clientX - startX;
-            if (dx < -50) goTo(current + 1);
-            else if (dx > 50) goTo(current - 1);
-            else goTo(current);
+            if (!dirLocked) {
+                dirLocked = true;
+                isHorizontal = Math.abs(dx) > Math.abs(dy);
+            }
+
+            if (!isHorizontal) return;
+            e.preventDefault();
+
+            // Add resistance at edges
+            let offset = -current * vw() + dx;
+            if (current === 0 && dx > 0) offset = -current * vw() + dx * 0.3;
+            if (current === total - 1 && dx < 0) offset = -current * vw() + dx * 0.3;
+
+            setPosition(offset);
+        }, { passive: false });
+
+        slider.addEventListener('touchend', () => {
+            if (!tracking) return;
+            tracking = false;
+            if (!isHorizontal) { slideTo(current); return; }
+
+            const threshold = vw() * 0.15;
+            if (dx < -threshold) slideTo(current + 1);
+            else if (dx > threshold) slideTo(current - 1);
+            else slideTo(current);
+        }, { passive: true });
+
+        // Recalculate on resize
+        window.addEventListener('resize', () => {
+            slider.classList.remove('animating');
+            setPosition(-current * vw());
         });
     </script>
 </body>
