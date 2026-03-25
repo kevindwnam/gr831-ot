@@ -2,142 +2,169 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>GR831 오티 만화</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             background: #1a1a1a;
             color: #fff;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: pan-y;
         }
 
-        header {
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            background: rgba(26, 26, 26, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 16px 0;
-            text-align: center;
-            border-bottom: 1px solid #333;
-        }
-
-        header h1 {
-            font-size: 1.4rem;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-
-        .page-indicator {
-            font-size: 0.85rem;
-            color: #888;
-            margin-top: 4px;
-        }
-
-        .comic-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px 0;
+        .slider {
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
+            height: 100vh;
+            transition: transform 0.35s ease;
         }
 
-        .comic-container img {
-            width: 100%;
-            display: block;
+        .slide {
+            min-width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .slide img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
             user-select: none;
             -webkit-user-drag: none;
         }
 
-        .top-btn {
+        .nav-area {
             position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: rgba(40, 40, 40, 0.9);
-            backdrop-filter: blur(10px);
-            color: #fff;
-            border: 1px solid #444;
-            border-radius: 50%;
-            width: 48px;
-            height: 48px;
-            font-size: 1rem;
+            top: 0;
+            width: 30%;
+            height: 100%;
+            z-index: 10;
             cursor: pointer;
-            z-index: 100;
-            transition: opacity 0.3s;
-            opacity: 0;
         }
 
-        .top-btn.visible {
-            opacity: 1;
+        .nav-area.left { left: 0; }
+        .nav-area.right { right: 0; }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            z-index: 20;
         }
 
-        footer {
-            text-align: center;
-            padding: 40px 20px;
-            color: #555;
-            font-size: 0.85rem;
+        .dots {
+            display: flex;
+            gap: 6px;
         }
 
-        @media (max-width: 600px) {
-            header h1 { font-size: 1.1rem; }
-            .comic-container { padding: 10px 0; }
+        .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.25);
+            transition: background 0.25s, transform 0.25s;
+            cursor: pointer;
+            border: none;
+            padding: 0;
+        }
+
+        .dot.active {
+            background: #fff;
+            transform: scale(1.3);
+        }
+
+        .page-num {
+            font-size: 0.6rem;
+            color: rgba(255, 255, 255, 0.35);
+            letter-spacing: 1px;
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>GR831 오티 만화</h1>
-        <div class="page-indicator" id="pageIndicator">1 / 11</div>
-    </header>
-
-    <div class="comic-container" id="comicContainer"></div>
-
-    <button class="top-btn" id="topBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})">&#9650;</button>
-
-    <footer>GR831 OT Comic Viewer</footer>
+    <div class="slider" id="slider"></div>
+    <div class="nav-area left" id="navLeft"></div>
+    <div class="nav-area right" id="navRight"></div>
+    <div class="bottom-nav">
+        <div class="dots" id="dots"></div>
+        <div class="page-num" id="pageNum">1 / 11</div>
+    </div>
 
     <script>
-        const totalPages = 11;
-        const container = document.getElementById('comicContainer');
-        const pageIndicator = document.getElementById('pageIndicator');
-        const topBtn = document.getElementById('topBtn');
+        const total = 11;
+        let current = 0;
+        const slider = document.getElementById('slider');
+        const dotsContainer = document.getElementById('dots');
+        const pageNum = document.getElementById('pageNum');
 
-        for (let i = 1; i <= totalPages; i++) {
+        // Build slides and dots
+        for (let i = 1; i <= total; i++) {
+            const slide = document.createElement('div');
+            slide.className = 'slide';
             const img = document.createElement('img');
             img.src = `images/page_${i}.jpg`;
             img.alt = `Page ${i}`;
-            img.loading = i <= 3 ? 'eager' : 'lazy';
-            img.dataset.page = i;
-            container.appendChild(img);
+            slide.appendChild(img);
+            slider.appendChild(slide);
+
+            const dot = document.createElement('button');
+            dot.className = 'dot' + (i === 1 ? ' active' : '');
+            dot.addEventListener('click', () => goTo(i - 1));
+            dotsContainer.appendChild(dot);
         }
 
-        const images = container.querySelectorAll('img');
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    pageIndicator.textContent = `${entry.target.dataset.page} / ${totalPages}`;
-                }
-            });
-        }, { threshold: 0.5 });
+        const dots = dotsContainer.querySelectorAll('.dot');
 
-        images.forEach(img => observer.observe(img));
+        function goTo(idx) {
+            current = Math.max(0, Math.min(total - 1, idx));
+            slider.style.transform = `translateX(-${current * 100}vw)`;
+            dots.forEach((d, i) => d.classList.toggle('active', i === current));
+            pageNum.textContent = `${current + 1} / ${total}`;
+        }
 
-        window.addEventListener('scroll', () => {
-            topBtn.classList.toggle('visible', window.scrollY > 400);
+        // Click navigation
+        document.getElementById('navLeft').addEventListener('click', () => goTo(current - 1));
+        document.getElementById('navRight').addEventListener('click', () => goTo(current + 1));
+
+        // Keyboard
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') goTo(current - 1);
+            if (e.key === 'ArrowRight') goTo(current + 1);
         });
 
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Home') window.scrollTo({ top: 0, behavior: 'smooth' });
-            if (e.key === 'End') window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        // Touch swipe
+        let startX = 0;
+        let dragging = false;
+
+        slider.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            dragging = true;
+            slider.style.transition = 'none';
+        });
+
+        slider.addEventListener('touchmove', (e) => {
+            if (!dragging) return;
+            const dx = e.touches[0].clientX - startX;
+            slider.style.transform = `translateX(calc(-${current * 100}vw + ${dx}px))`;
+        });
+
+        slider.addEventListener('touchend', (e) => {
+            if (!dragging) return;
+            dragging = false;
+            slider.style.transition = 'transform 0.35s ease';
+            const dx = e.changedTouches[0].clientX - startX;
+            if (dx < -50) goTo(current + 1);
+            else if (dx > 50) goTo(current - 1);
+            else goTo(current);
         });
     </script>
 </body>
