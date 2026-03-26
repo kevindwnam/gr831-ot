@@ -14,14 +14,22 @@
             height: 100%;
             overflow: hidden;
             touch-action: none;
-            -webkit-overflow-scrolling: touch;
+        }
+
+        .viewer-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #111;
+            padding: 14px 0 10px;
+            text-align: center;
         }
 
         .slider {
             display: flex;
-            height: calc(100% - 42px - 50px);
+            height: calc(100% - 42px - 40px);
             will-change: transform;
             transform: translate3d(0, 0, 0);
+            cursor: pointer;
         }
 
         .slider.animating {
@@ -34,6 +42,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            padding-bottom: 30px;
         }
 
         .slide img {
@@ -45,27 +54,15 @@
             pointer-events: none;
         }
 
-        .slider {
-            cursor: pointer;
-        }
-
-        .viewer-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #111;
-            padding: 14px 0 10px;
-            text-align: center;
-        }
-
         .bottom-nav {
             position: fixed;
-            bottom: 16px;
+            bottom: 14px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
             z-index: 20;
         }
 
@@ -152,7 +149,7 @@
             if (e.key === 'ArrowRight') slideTo(current + 1);
         });
 
-        // Unified touch + click on body
+        // Touch swipe
         let startX = 0, startY = 0, dx = 0, tracking = false, dirLocked = false, isHorizontal = false;
         let startTime = 0;
 
@@ -191,7 +188,6 @@
             if (!tracking) return;
             tracking = false;
 
-            // Tap detection: short duration and minimal movement → treat as click
             const elapsed = Date.now() - startTime;
             if (elapsed < 250 && Math.abs(dx) < 10) {
                 const tapX = e.changedTouches[0].clientX;
@@ -208,7 +204,6 @@
             else slideTo(current);
         }, { passive: true });
 
-        // Recalculate on resize
         window.addEventListener('resize', () => {
             slider.classList.remove('animating');
             setPosition(-current * vw());
