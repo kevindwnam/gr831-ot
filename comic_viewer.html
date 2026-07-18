@@ -54,6 +54,42 @@
             pointer-events: none;
         }
 
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: opacity 0.4s;
+        }
+
+        .loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #eee;
+            border-top-color: #333;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 14px;
+            font-size: 13px;
+            color: #999;
+        }
+
         .bottom-nav {
             position: fixed;
             bottom: 14px;
@@ -95,6 +131,10 @@
     </style>
 </head>
 <body>
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">로딩 중...</div>
+    </div>
     <div class="viewer-title">GR831 학습 O.T</div>
     <div class="slider" id="slider"></div>
     <div class="bottom-nav">
@@ -110,12 +150,14 @@
         const pageNum = document.getElementById('pageNum');
         const vw = () => window.innerWidth;
 
+        const images = [];
         for (let i = 1; i <= total; i++) {
             const slide = document.createElement('div');
             slide.className = 'slide';
             const img = document.createElement('img');
             img.src = `public/images/page_${i}.jpg`;
             img.alt = `Page ${i}`;
+            images.push(img);
             slide.appendChild(img);
             slider.appendChild(slide);
 
@@ -124,6 +166,17 @@
             dot.addEventListener('click', () => slideTo(i - 1));
             dotsContainer.appendChild(dot);
         }
+
+        // 모든 이미지 로드 완료 후 로딩 화면 제거
+        Promise.all(images.map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise(resolve => {
+                img.onload = resolve;
+                img.onerror = resolve;
+            });
+        })).then(() => {
+            document.getElementById('loadingScreen').classList.add('hidden');
+        });
 
         const dots = dotsContainer.querySelectorAll('.dot');
 
